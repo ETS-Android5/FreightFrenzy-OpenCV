@@ -37,6 +37,25 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
 
+import org.firstinspires.ftc.robotcore.external.ClassFactory;
+import org.firstinspires.ftc.robotcore.external.hardware.camera.SwitchableCamera;
+import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
+
+import org.firstinspires.ftc.robotcore.external.navigation.VuforiaLocalizer;
+import org.opencv.core.*;
+import org.opencv.core.Point;
+import org.opencv.imgcodecs.Imgcodecs;
+import org.opencv.imgproc.Imgproc;
+import org.opencv.imgproc.Imgproc.*;
+import org.opencv.imgproc.Moments;
+import org.opencv.video.Video;
+import org.opencv.videoio.VideoCapture;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
+
 /**
  * This file contains an minimal example of a Linear "OpMode". An OpMode is a 'program' that runs in either
  * the autonomous or the teleop period of an FTC match. The names of OpModes appear on the menu
@@ -51,64 +70,180 @@ import com.qualcomm.robotcore.util.Range;
  */
 
 @TeleOp(name="Basic: Linear OpMode", group="Linear Opmode")
-@Disabled
+
 public class BasicOpMode_Linear extends LinearOpMode {
 
     // Declare OpMode members.
     private ElapsedTime runtime = new ElapsedTime();
     private DcMotor leftDrive = null;
     private DcMotor rightDrive = null;
+    static int i = 0;
+    static int red_lower = 0;
+    static int red_upper = 255;
+    static int blue_lower = 0;
+    static int blue_upper = 255;
+    static int green_lower = 0;
+    static int green_upper = 255;
+    static int area_lower = 10000;
+    static int area_upper = 250000;
+    private WebcamName webcam1;
+    private WebcamName webcam2;
+    private SwitchableCamera switchableCamera;
+    private VuforiaLocalizer vuforia;
+    private static final String VUFORIA_KEY =
+            "AcuULCD/////AAABmT3WggAKcUf6ujl4RXFuE69bIn9w0BkcGcPeVjpZDBjTFgl6Dso8WLn3H+A2b7SlxWuv13sZb0+zRq505bguhB0t0IWJvUFUirziTiectN5zMeJm4aluqNOljkwju1ESmz/ckXZ4XQqa21xxhc5pV+imIdR/m/7B3ovzu5ElpDYHTBBS4O365Aac3veTpj2yqPalexQM0O5T+W5uknxmHIiuUYFKSQt/OAET5gvycbEdsrgeqrQvRhRP9LcepuuCieCW49VUsc3hft73eUHRmu5M0dOICqTOuuX3JYRekdn9fSA45yjF/N3oFuu7snxURvaHR+A8lNJHCYV5LBo51dFM8dJYfjW8oDMNYO6haPsW";
+
+
+
+
 
     @Override
     public void runOpMode() {
         telemetry.addData("Status", "Initialized");
         telemetry.update();
 
-        // Initialize the hardware variables. Note that the strings used here as parameters
-        // to 'get' must correspond to the names assigned during the robot configuration
-        // step (using the FTC Robot Controller app on the phone).
-        leftDrive  = hardwareMap.get(DcMotor.class, "left_drive");
-        rightDrive = hardwareMap.get(DcMotor.class, "right_drive");
+        initVuforia2Cameras();
 
-        // Most robots need the motor on one side to be reversed to drive forward
-        // Reverse the motor that runs backwards when connected directly to the battery
-        leftDrive.setDirection(DcMotor.Direction.FORWARD);
-        rightDrive.setDirection(DcMotor.Direction.REVERSE);
+//        System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+//        VideoCapture capture = new VideoCapture(0);
+////        VideoCapture capture2 = new VideoCapture(1);
+//        Mat matrix1 = new Mat();
+//        Mat matrix2 = new Mat();
+//        Mat newMatrix1 = new Mat();
+//        Mat newMatrix2 = new Mat();
+//        Mat newMatrix1Gray = new Mat();
+//        Mat newMatrix2Blur = new Mat();
+//        Mat newMatrix1Canny = new Mat();
+//        List<MatOfPoint> contours = new ArrayList<>();
+//
+//
+//        capture.read(matrix1);
 
-        // Wait for the game to start (driver presses PLAY)
         waitForStart();
-        runtime.reset();
 
-        // run until the end of the match (driver presses STOP)
-        while (opModeIsActive()) {
 
-            // Setup a variable for each drive wheel to save power level for telemetry
-            double leftPower;
-            double rightPower;
 
-            // Choose to drive using either Tank Mode, or POV Mode
-            // Comment out the method that's not used.  The default below is POV.
 
-            // POV Mode uses left stick to go forward, and right stick to turn.
-            // - This uses basic math to combine motions and is easier to drive straight.
-            double drive = -gamepad1.left_stick_y;
-            double turn  =  gamepad1.right_stick_x;
-            leftPower    = Range.clip(drive + turn, -1.0, 1.0) ;
-            rightPower   = Range.clip(drive - turn, -1.0, 1.0) ;
+        /**
+         * The below code takes the given image in the filepath and essentially just runs a lot of filters on the same image
+         * and ALSO finds and draws the contours of each image, before plotting the centroid of each contour with an ellipse.
+         */
 
-            // Tank Mode uses one stick to control each wheel.
-            // - This requires no math, but it is hard to drive forward slowly and keep straight.
-            // leftPower  = -gamepad1.left_stick_y ;
-            // rightPower = -gamepad1.right_stick_y ;
 
-            // Send calculated power to wheels
-            leftDrive.setPower(leftPower);
-            rightDrive.setPower(rightPower);
 
-            // Show the elapsed game time and wheel power.
-            telemetry.addData("Status", "Run Time: " + runtime.toString());
-            telemetry.addData("Motors", "left (%.2f), right (%.2f)", leftPower, rightPower);
-            telemetry.update();
+
+
+        /**
+         * End of contour code
+         */
+
+
+        /**
+         * This block of code runs for 10,000 frames of images collected from the local webcam of the computer.
+         * The variables and intialization of the webcam is at the beginning of the main method.
+         */
+//        while (i < 10000) {
+//            System.out.println(i);
+//            capture.read(matrix1);
+////            Imgproc.resize(matrix1, matrix1, new Size(50, 30));
+////            Imgproc.resize(matrix1, matrix1, new Size(1280, 720));
+//
+//            Scalar lowerHSV = new Scalar(105, 90, 20);
+//            Scalar upperHSV = new Scalar(125, 255, 230);
+//            Mat matrixHSV = new Mat();
+//            Mat Mask = new Mat();
+//            Mat coloredMask = new Mat();
+//            Imgproc.cvtColor(matrix1, matrixHSV, Imgproc.COLOR_RGB2HSV);
+//            Core.inRange(matrixHSV, lowerHSV, upperHSV, Mask);
+//            Core.bitwise_and(matrix1, matrix1, coloredMask, Mask);
+//            Mat binaryMask = new Mat();
+//            Imgproc.threshold(Mask, binaryMask, 200, 255, Imgproc.THRESH_BINARY_INV);
+//            //Finding Contours
+//            List<MatOfPoint> contoursMask = new ArrayList<>();
+//            Mat hierarcheyMask = new Mat();
+//            Imgproc.findContours(binaryMask, contoursMask, hierarcheyMask, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+//
+//            Iterator<MatOfPoint> itMask = contours.iterator();
+//
+//
+//            RotatedRect box2 = new RotatedRect(new Point(316, 170), new Size(5, 5), 180);
+//
+//            Mat drawMask = Mat.zeros(binaryMask.size(), CvType.CV_8UC3);
+//            Mat centroidsMask;
+//            for (int i = 0; i < contoursMask.size(); i++) {
+//                int area = (int) Imgproc.contourArea(contoursMask.get(i));
+//                if (area > area_lower && area < area_upper) {
+//                    centroidsMask = new Mat();
+//                    System.out.println(contoursMask);
+//                    System.out.println(contoursMask.get(i));
+//
+//                    Scalar color = new Scalar(0, 255, 0);
+//
+//                    //Drawing Contours
+//                    Imgproc.drawContours(drawMask, contoursMask, i, color, 2, Imgproc.LINE_8, hierarcheyMask, 2, new Point());
+//                } else {
+//
+//                }
+//            }
+//
+//            for (int contIdx = 0; contIdx < contoursMask.size(); contIdx++) {
+//                int area = (int) Imgproc.contourArea(contoursMask.get(contIdx));
+//                if (area > area_lower && area < area_upper) {
+//                    System.out.println("Contour Area: " + area);
+//                    Moments Mmask = Imgproc.moments(contoursMask.get(contIdx));
+//                    int cx = (int) (Mmask.get_m10() / Mmask.get_m00());
+//                    int cy = (int) (Mmask.get_m01() / Mmask.get_m00());
+//                    Imgproc.ellipse(drawMask, new RotatedRect(new Point(cx, cy), new Size(10, 10), 180), new Scalar(0, 0, 255));
+//                    System.out.println(cx + ", " + cy);
+//
+//                }
+//            }
+//
+//            i++;
+//        }
         }
+
+    private void initVuforia() {
+        /*
+         * Configure Vuforia by creating a Parameter object, and passing it to the Vuforia engine.
+         */
+        VuforiaLocalizer.Parameters parameters = new VuforiaLocalizer.Parameters();
+
+        parameters.vuforiaLicenseKey = VUFORIA_KEY;
+        // Indicate that we wish to be able to switch cameras.
+        webcam1 = hardwareMap.get(WebcamName.class, "Webcam 1");
+        parameters.cameraName = ClassFactory.getInstance().getCameraManager().nameForSwitchableCamera(webcam1);
+
+        //  Instantiate the Vuforia engine
+        vuforia = ClassFactory.getInstance().createVuforia(parameters);
+
+        // Set the active camera to Webcam 1.
+        switchableCamera = (SwitchableCamera) vuforia.getCamera();
+        switchableCamera.setActiveCamera(webcam1);
+
+        // Loading trackables is not necessary for the TensorFlow Object Detection engine.
     }
-}
+    private void initVuforia2Cameras() {
+        /*
+         * Configure Vuforia by creating a Parameter object, and passing it to the Vuforia engine.
+         */
+        VuforiaLocalizer.Parameters parameters = new VuforiaLocalizer.Parameters();
+
+        parameters.vuforiaLicenseKey = VUFORIA_KEY;
+
+        // Indicate that we wish to be able to switch cameras.
+        webcam1 = hardwareMap.get(WebcamName.class, "Webcam 1");
+        webcam2 = hardwareMap.get(WebcamName.class, "Webcam 2");
+        parameters.cameraName = ClassFactory.getInstance().getCameraManager().nameForSwitchableCamera(webcam1, webcam2);
+
+        //  Instantiate the Vuforia engine
+        vuforia = ClassFactory.getInstance().createVuforia(parameters);
+
+        // Set the active camera to Webcam 1.
+        switchableCamera = (SwitchableCamera) vuforia.getCamera();
+        switchableCamera.setActiveCamera(webcam1);
+
+        // Loading trackables is not necessary for the TensorFlow Object Detection engine.
+    }
+    }
+
